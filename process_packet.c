@@ -8,8 +8,8 @@
 #include <net/ethernet.h>
 
 void process_ipv4(const struct ip*);
-void process_arp(const struct arphdr*);
-void process_ipv6();
+void process_arp(const struct arphdr*); // TODO
+void process_ipv6(); // TODO
 
 void process_packet(u_char* _, const struct pcap_pkthdr* hdr, const u_char* packet) {
     const struct ether_header *eth_ptr = (struct ether_header*)(packet);

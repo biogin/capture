@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-//#include <errno.h>
+#include <errno.h>
 #include <netinet/in.h>
 #include <pcap.h>
 
@@ -22,11 +22,10 @@
 int main(int argc, char* argv[]) {
     pcap_if_t* dvcs;
     pcap_t* handle;
-    struct in_addr addr;
     int c;
     char* interface = NULL;
     int dvcount = 0;
-    int cnt;
+    int cnt; // TODO
     char list_interfaces = 0;
     char promisc = 0;
     char tcp = 1,
