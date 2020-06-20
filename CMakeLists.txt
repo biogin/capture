@@ -3,6 +3,6 @@ project(capture C)
 
 set(CMAKE_C_STANDARD 99)
 
-add_executable(capture main.c process_packet.c)
+add_executable(capture src/main.c src/process_packet.c src/utils/stdout.c)
 
 target_link_libraries(capture ${CMAKE_SOURCE_DIR}/lib/libpcap.a)
