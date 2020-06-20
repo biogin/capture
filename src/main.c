@@ -2,8 +2,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <errno.h>
-#include <netinet/in.h>
 #include <pcap.h>
 
 #include "process_packet.h"
@@ -18,6 +16,10 @@
      * p(promisc) enable promisc mode
      * t,u,i(tcp,udp,icmp) protocol for sniffing
  */
+
+void print_header() {
+
+}
 
 int main(int argc, char* argv[]) {
     pcap_if_t* dvcs;
@@ -98,9 +100,10 @@ int main(int argc, char* argv[]) {
        exit(1);
    }
 
-    printf("Starting to capture on %s\n", interface);
+   print_header();
 
-    printf("%d\n", pcap_datalink(handle));
+    printf("Starting to capture on %s\n", interface);
+    printf("Layer");
 
     pcap_loop(handle, -1, process_packet, NULL);
 
