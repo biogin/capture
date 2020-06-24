@@ -105,6 +105,8 @@ int main(int argc, char* argv[]) {
     printf("Starting to capture on %s\n", interface);
     printf("Layer");
 
+    setbuf(stdout, NULL); // print packets immediately
+
     pcap_loop(handle, -1, process_packet, NULL);
 
     return 0;
