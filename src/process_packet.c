@@ -4,6 +4,8 @@
 
 #include <netinet/ip.h>
 #include <netinet/ether.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
 #include <net/if_arp.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -18,7 +20,8 @@ void process_ipv6(); // TODO
 void print_eth_hdr(const struct ether_header*);
 void print_arp(const struct arphdr*); // TODO
 void print_ipv4_hdr(const struct iphdr*);
-void print_tcp(const struct tcp_hdr);
+void print_tcp(const struct tcphdr*);
+void print_udp(const struct udphdr*);
 
 FILE* logfile;
 struct sockaddr_in source, dest;
@@ -55,13 +58,13 @@ void process_packet(u_char* _, const struct pcap_pkthdr* hdr, const u_char* buff
 void process_ipv4(const struct ip* packet) {
     unsigned int hdr_size = packet->ip_hl * 4;
 
-    print_ipv4_hdr((struct iphdr *) (packet)); // just for clarity, i guess..
+    print_ipv4_hdr((struct iphdr *) (packet));
 
     switch (packet->ip_p) {
         case IPPROTO_ICMP:
             break;
         case IPPROTO_TCP:
-            print
+            print_tcp((struct tcphdr*)(packet + hdr_size));
             break;
         case IPPROTO_UDP:
             break;
@@ -71,12 +74,8 @@ void process_ipv4(const struct ip* packet) {
 }
 
 void print_eth_hdr(const struct ether_header* hdr) {
-    // ugly but who cares
-    printf("\n");
-    printf(" --------------------------------------------------------------\n");
-    printf(" 2L ");
-
-    printf("|  ETH: ");
+    printf(" ------\n");
+    printf("  2L  |  ETH: MAC(");
     set_stdout_color("[0;34m");; // blue
     printf("%s ", ether_ntoa((struct ether_addr*)hdr->ether_shost));
     reset_color();
@@ -84,9 +83,10 @@ void print_eth_hdr(const struct ether_header* hdr) {
     set_stdout_color("[0;34m");
     printf("%s", ether_ntoa((struct ether_addr*)hdr->ether_dhost));
     reset_color();
+    printf(")");
 
     print_char(" ", 20);
-    printf("|\n");
+    printf("\n");
 }
 
 void print_ipv4_hdr(const struct iphdr* hdr) {
@@ -96,12 +96,39 @@ void print_ipv4_hdr(const struct iphdr* hdr) {
     memset(&dest, 0, sizeof(dest));
     dest.sin_addr.s_addr = hdr->daddr;
 
-    printf(" 3L ");
-    printf("|  IP: %s --> ", inet_ntoa(source.sin_addr));
-    printf("%s", inet_ntoa(dest.sin_addr));
+    printf("  3L  |  IP4: ip(%s --> ", inet_ntoa(source.sin_addr));
+    printf("%s)", inet_ntoa(dest.sin_addr));
     print_char(" ", 20);
-    printf("| \n");
-
-    printf(" --------------------------------------------------------------");
     printf("\n");
+}
+
+void print_tcp(const struct tcphdr* tcp) {
+    uint8_t flags = tcp->th_flags;
+    int CWR               =  (flags & 8) ? 1 : 0,
+        ECH_ECHO          =  (flags & 7) ? 1 : 0,
+        Urgent            =  (flags & 6) ? 1 : 0,
+        Acknowledgement   =  (flags & 5) ? 1 : 0,
+        Push              =  (flags & 4) ? 1 : 0,
+        Reset             =  (flags & 3) ? 1 : 0,
+        Syn               =  (flags & 2) ? 1 : 0,
+        Fin               =  (flags & 1) ? 1 : 0;
+    printf("  4L  |  TCP: port(%u ->", ntohs(tcp->source));
+    printf(" %u)  ", ntohs(tcp->dest));
+    printf("seq=%d ", ntohl(tcp->seq));
+    printf("ack=%d  ", ntohl(tcp->ack_seq));
+    printf("[CWR=%d, ECN-Echo=%d, URG=%d, ACK=%d, PSH=%d, RST=%d, SYN=%d, FIN=%d]  ",
+           CWR             ? 1 : 0,
+           ECH_ECHO        ? 1 : 0,
+           Urgent          ? 1 : 0,
+           Acknowledgement ? 1 : 0,
+           Push            ? 1 : 0,
+           Reset           ? 1 : 0,
+           Syn             ? 1 : 0,
+           Fin             ? 1 : 0
+    );
+    printf("win=%d  ", ntohs(tcp->window));
+    printf("checksum=%d", ntohs(tcp->check));
+    printf("\n");
+    printf(" ------");
+    printf("\n\n");
 }
