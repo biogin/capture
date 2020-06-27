@@ -14,12 +14,10 @@
      * n(name) interface name
      * l(list) list all the available ifs and choose one to sniff on
      * p(promisc) enable promisc mode
-     * t,u,i(tcp,udp,icmp) protocol for sniffing
+     * t,u,i(tcp,udp,icmp) only show specific 4L packets
  */
 
-void print_header() {
-
-}
+void print_header() {}
 
 int main(int argc, char* argv[]) {
     pcap_if_t* dvcs;

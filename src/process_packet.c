@@ -103,28 +103,19 @@ void print_ipv4_hdr(const struct iphdr* hdr) {
 }
 
 void print_tcp(const struct tcphdr* tcp) {
-    uint8_t flags = tcp->th_flags;
-    int CWR               =  (flags & 8) ? 1 : 0,
-        ECH_ECHO          =  (flags & 7) ? 1 : 0,
-        Urgent            =  (flags & 6) ? 1 : 0,
-        Acknowledgement   =  (flags & 5) ? 1 : 0,
-        Push              =  (flags & 4) ? 1 : 0,
-        Reset             =  (flags & 3) ? 1 : 0,
-        Syn               =  (flags & 2) ? 1 : 0,
-        Fin               =  (flags & 1) ? 1 : 0;
     printf("  4L  |  TCP: port(%u ->", ntohs(tcp->source));
     printf(" %u)  ", ntohs(tcp->dest));
     printf("seq=%d ", ntohl(tcp->seq));
     printf("ack=%d  ", ntohl(tcp->ack_seq));
     printf("[CWR=%d, ECN-Echo=%d, URG=%d, ACK=%d, PSH=%d, RST=%d, SYN=%d, FIN=%d]  ",
-           CWR             ? 1 : 0,
-           ECH_ECHO        ? 1 : 0,
-           Urgent          ? 1 : 0,
-           Acknowledgement ? 1 : 0,
-           Push            ? 1 : 0,
-           Reset           ? 1 : 0,
-           Syn             ? 1 : 0,
-           Fin             ? 1 : 0
+           (tcp->th_flags & 8) ? 1 : 0,
+           (tcp->th_flags & 9) ? 1 : 0,
+           (unsigned int)tcp->urg,
+           (unsigned int)tcp->ack,
+           (unsigned int)tcp->psh,
+           (unsigned int)tcp->rst,
+           (unsigned int)tcp->syn,
+           (unsigned int)tcp->fin
     );
     printf("win=%d  ", ntohs(tcp->window));
     printf("checksum=%d", ntohs(tcp->check));
