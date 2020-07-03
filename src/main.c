@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <unistd.h>
 #include <pcap.h>
 
+#include "connection.h"
 #include "process_packet.h"
 
 #define MAX_NUMBER_OF_IFS 100
@@ -17,7 +19,16 @@
      * t,u,i(tcp,udp,icmp) only show specific 4L packets
  */
 
-void print_header() {}
+connections_map map;
+
+void sig_handler(int sig) {
+    // free up the memory for buckets
+    if (sig == SIGINT) {
+        for (int i = 0, s = map.size; i < s; i++) {
+            free(map.buckets[i]);
+        }
+    }
+}
 
 int main(int argc, char* argv[]) {
     pcap_if_t* dvcs;
@@ -33,7 +44,6 @@ int main(int argc, char* argv[]) {
          icmp = 0;
     char interfaces[MAX_NUMBER_OF_IFS][50];
     char errbuf[PCAP_ERRBUF_SIZE];
-    pcap_handler
 
     opterr = 0;
 
@@ -98,12 +108,11 @@ int main(int argc, char* argv[]) {
        exit(1);
    }
 
-   print_header();
-
     printf("Starting to capture on %s\n", interface);
-    printf("Layer");
-
     setbuf(stdout, NULL); // print packets immediately
+
+    memset(&map, 0, sizeof(map));
+    map.capacity = 200;
 
     pcap_loop(handle, -1, process_packet, NULL);
 
