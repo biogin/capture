@@ -22,7 +22,8 @@ typedef struct conn_node {
 
 typedef struct {
     int size;
-    double load;
+    int capacity;
+    double load_factor;
 
     conn_node* buckets[INITIAL_BUCKETS_SIZE];
 } connections_map;
