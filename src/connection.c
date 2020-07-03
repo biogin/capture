@@ -23,14 +23,14 @@ unsigned long hash(u_char *str) {
 }
 
 static int get_connection_hash(const connections_map *m, u_char* key) {
-    return hash(key) % m->size;
+    return hash(key) % m->capacity;
 }
 
 static void get_connection_key(const connection *conn, u_char* buf) {
     // "key" for a map's gonna look like:  192.168.0.1:4205 (for example)
-    strncpy(buf, inet_ntoa(conn->saddr), 15);
+    strncpy(buf, conn->ip, 15);
     strcat(buf, ":");
-    strcat(buf, itoa(conn->sport, 10));
+    strcat(buf, itoa(conn->port, 10));
 }
 
 static const char *itoa(int val, int base) {
@@ -47,6 +47,7 @@ static const char *itoa(int val, int base) {
 conn_node *insert_connection(connections_map *map, connection *conn) {
     u_char buf[21];
     get_connection_key(conn, buf);
+    map->size++;
     int hash = get_connection_hash(map, buf);
 
     conn_node *c = map->buckets[hash];
@@ -62,11 +63,11 @@ conn_node *insert_connection(connections_map *map, connection *conn) {
         memset(c->key, '\0', sizeof(c->key));
         strcpy(c->key, buf);
 
-        return map->buckets[hash] = c;
+        return (map->buckets[hash] = c);
     }
 
     while (true) {
-        if (strcmp(c->key, buf)) {
+        if (strcmp(c->key, buf) == 0) {
             // TODO Append all incoming tcp headers to "conn" and return it
 
             return c;
@@ -91,10 +92,10 @@ conn_node *get_connection(const connections_map *map, const connection *conn) {
     u_char buf[21];
     get_connection_key(conn, buf);
     int hash = get_connection_hash(map, buf);
-    // TODO Seg fault cuz buckets is uninitialized;O
+
     conn_node *dumb = map->buckets[hash];
 
-    while (dumb != NULL || dumb->key != buf) {
+    while (dumb != NULL && strcmp(dumb->key, buf) != 0) {
         dumb = dumb->next;
     }
 

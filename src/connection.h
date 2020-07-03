@@ -7,9 +7,11 @@
 
 #define INITIAL_BUCKETS_SIZE 250
 
-typedef struct {
-   struct in_addr saddr, daddr;
-   uint16_t sport, dport;
+typedef struct connection {
+   u_char ip[15];
+   uint16_t port;
+
+   struct connection* remote_host;
    struct tcphdr tcp_headers;
 } connection;
 
@@ -20,7 +22,7 @@ typedef struct conn_node {
     struct conn_node* next;
 } conn_node;
 
-typedef struct {
+typedef struct connections_map {
     int size;
     int capacity;
     double load_factor;
