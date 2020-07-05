@@ -32,6 +32,6 @@ typedef struct connections_map {
 
 conn_node* get_connection(const connections_map*, const connection*);
 conn_node* insert_connection(connections_map*, connection*);
-int delete_connection(const connections_map* m, const connection*);
+int delete_connection(connections_map* m, const connection*);
 
 #endif //CAPTURE_CONNECTION_H
