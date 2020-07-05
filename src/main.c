@@ -4,6 +4,8 @@
 #include <signal.h>
 #include <unistd.h>
 #include <pcap.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
 
 #include "connection.h"
 #include "process_packet.h"
@@ -22,12 +24,26 @@
 connections_map map;
 
 void sig_handler(int sig) {
-    // free up the memory for buckets
     if (sig == SIGINT) {
         for (int i = 0, s = map.size; i < s; i++) {
             free(map.buckets[i]);
         }
     }
+}
+
+int if_is_up(u_char* interface) { // FIXME Bad file descriptor errno
+    struct ifreq ifr;
+    int sock = socket(AF_INET, SOCK_RAW, 0);
+
+    memset(&ifr, 0, sizeof(ifr));
+    strcpy(ifr.ifr_name, interface);
+
+    if (ioctl(sock, SIOCGIFFLAGS, &ifr) < 0)
+        perror("SIOCGIFFLAGS");
+
+    close(sock);
+
+    return !!(ifr.ifr_flags & IFF_RUNNING);
 }
 
 int main(int argc, char* argv[]) {
@@ -85,7 +101,12 @@ int main(int argc, char* argv[]) {
     if (list_interfaces) {
         int if_num;
         for (int i = 0; i < dvcount; ++i) {
-            printf("%d. %s\n", i + 1, interfaces[i]);
+            printf("%d. %s", i + 1, interfaces[i]);
+
+//            if (if_is_up(interfaces[i]))
+//                printf(" [UP, RUNNING]\n");
+//            else
+//                printf(" [DOWN]\n");
         }
 
         printf("Choose an interface to sniff on:\n");
@@ -113,8 +134,12 @@ int main(int argc, char* argv[]) {
 
     memset(&map, 0, sizeof(map));
     map.capacity = 200;
+    map.size = 0;
 
     pcap_loop(handle, -1, process_packet, NULL);
+
+    if (signal(SIGINT, sig_handler) == SIG_ERR)
+        fprintf(stderr, "\ncan't catch SIGINT\n");
 
     return 0;
 }
