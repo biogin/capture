@@ -7,30 +7,41 @@
 #include <netinet/ether.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
+#include <netinet/ip_icmp.h>
+#include <net/ethernet.h>
 #include <net/if_arp.h>
 #include <arpa/inet.h>
 #include <linux/if_ether.h>
-#include <net/ethernet.h>
+#include <net/if.h>
 
 #include "utils/stdout.h"
+#include "connection.h"
 
-void process_ipv4(const u_char*);
+void print_eth_hdr(const struct ether_header *);
+
+void process_ipv4(const u_char *);
 void process_ipv6(); // TODO
+void process_arp(const u_char*); // TODO
 
-void print_eth_hdr(const struct ether_header*);
-void print_arp(const struct arphdr*); // TODO
-void print_ipv4_hdr(const struct iphdr*);
-void print_tcp(const u_char*, const int);
-void print_udp(const u_char*); // TODO
+void process_tcp(const u_char *tcp_buf, int ip_header_size);
+void process_udp(u_char *payload, uint16_t len);
+void process_icmp(u_char *payload, uint16_t iphdr_len);
 
-void print_data(const unsigned char *buffer, const unsigned int len); // TODO
+void print_ipv4_hdr(const struct iphdr *);
+void print_tcp_headers(const struct tcphdr*, uint16_t, uint16_t);
 
-FILE* logfile; // TODO
+void print_data(const u_char *buffer, const u_int32_t len); // TODO
+
+
+FILE *logfile; // TODO
 struct sockaddr_in source, dest;
+u_char sip[15], dip[15];
 
-void process_packet(u_char* _, const struct pcap_pkthdr* hdr, const u_char* buffer) {
-    const struct ether_header *eth_ptr = (struct ether_header*)(buffer);
-    const u_char* payload = (ETHER_HDR_LEN + buffer);
+extern connections_map map;
+
+void process_packet(u_char *_, const struct pcap_pkthdr *hdr, const u_char *buffer) {
+    const struct ether_header *eth_ptr = (struct ether_header *) (buffer);
+    const u_char *payload = (ETHER_HDR_LEN + buffer);
     const uint16_t type = ntohs(eth_ptr->ether_type);
 
     print_eth_hdr(eth_ptr);
@@ -40,7 +51,7 @@ void process_packet(u_char* _, const struct pcap_pkthdr* hdr, const u_char* buff
             process_ipv4(payload);
             break;
         case ETHERTYPE_ARP:
-//            print_arp(ETH_HLEN + packet);
+            process_arp(payload);
             break;
         case ETHERTYPE_REVARP:
             // TODO
@@ -56,35 +67,15 @@ void process_packet(u_char* _, const struct pcap_pkthdr* hdr, const u_char* buff
 //    printf("") // TODO print overall stats
 }
 
-void process_ipv4(const u_char* packet) {
-    struct iphdr* ip_hdr = (struct iphdr*)(packet);
-    unsigned int hdr_size = ip_hdr->ihl * 4;
-    u_char* payload = packet + hdr_size;
-
-    print_ipv4_hdr(ip_hdr);
-
-    switch (ip_hdr->protocol) {
-        case IPPROTO_ICMP:
-            break;
-        case IPPROTO_TCP:
-            print_tcp(payload, hdr_size);
-            break;
-        case IPPROTO_UDP:
-            break;
-        default:
-            break;
-    }
-}
-
-void print_eth_hdr(const struct ether_header* hdr) {
+void print_eth_hdr(const struct ether_header *hdr) {
     printf(" ------\n");
     printf("  2L  |  ETH: MAC(");
     set_stdout_color("[0;34m");; // blue
-    printf("%s ", ether_ntoa((struct ether_addr*)hdr->ether_shost));
+    printf("%s ", ether_ntoa((struct ether_addr *) hdr->ether_shost));
     reset_color();
     printf("--> ");
     set_stdout_color("[0;34m");
-    printf("%s", ether_ntoa((struct ether_addr*)hdr->ether_dhost));
+    printf("%s", ether_ntoa((struct ether_addr *) hdr->ether_dhost));
     reset_color();
     printf(")");
 
@@ -92,24 +83,88 @@ void print_eth_hdr(const struct ether_header* hdr) {
     printf("\n");
 }
 
-void print_ipv4_hdr(const struct iphdr* hdr) {
+void process_ipv4(const u_char *packet) {
+    struct iphdr *ip_hdr = (struct iphdr *) (packet);
+    unsigned int hdr_size = ip_hdr->ihl * 4;
+    u_char *payload = packet + hdr_size;
+
+    print_ipv4_hdr(ip_hdr);
+
+    switch (ip_hdr->protocol) {
+        case IPPROTO_ICMP:
+            process_icmp(payload, ip_hdr->tot_len);
+            break;
+        case IPPROTO_TCP:
+            process_tcp(payload, ip_hdr->tot_len);
+            break;
+        case IPPROTO_UDP:
+            process_udp(payload, ip_hdr->tot_len);
+            break;
+        default:
+            break;
+    }
+}
+
+void process_arp(const u_char* packet) {
+    struct arphdr* arp = (struct arphdr*)(packet);
+
+    // TODO
+}
+
+void print_ipv4_hdr(const struct iphdr *hdr) {
     memset(&source, 0, sizeof(source));
     source.sin_addr.s_addr = hdr->saddr;
 
     memset(&dest, 0, sizeof(dest));
     dest.sin_addr.s_addr = hdr->daddr;
 
-    printf("  3L  |  IP4: ip(%s --> ", inet_ntoa(source.sin_addr));
-    printf("%s)", inet_ntoa(dest.sin_addr));
+    strcpy(sip, inet_ntoa(source.sin_addr));
+    strcpy(dip, inet_ntoa(dest.sin_addr));
+
+    printf("  3L  |  IP4: ip(%s --> ", sip);
+    printf("%s)", dip);
     print_char(" ", 20);
     printf("\n");
 }
 
-void print_tcp(const u_char* tcp_buf, int ip_header_size) {
-    struct tcphdr* tcp = (struct tcphdr*)tcp_buf;
+void process_tcp(const u_char *tcp_buf, int ip_header_size) {
+    struct tcphdr *tcp = (struct tcphdr *) tcp_buf;
+    u_char* payload = (tcp_buf + tcp->th_off * 4);
+    uint16_t sport = ntohs(tcp->th_sport);
+    uint16_t dport = ntohs(tcp->th_dport);
+    connection local;
+    connection remote;
 
-    printf("  4L  |  TCP: port(%d ->", ntohs(tcp->th_sport));
-    printf(" %d)  ", ntohs(tcp->th_dport));
+    strcpy(local.ip, sip);
+    strcpy(remote.ip, dip);
+
+    local.port = sport;
+    remote.port = dport;
+
+    local.remote_host = &remote;
+
+//    conn_node* local_connection_entry = get_connection(&map, &local);
+//    conn_node* local_remote_connection_entry = get_connection(&map, &remote);
+//
+//    if (local_connection_entry != NULL) {
+//        1r
+//
+//    } else if (local_remote_connection_entry != NULL) {
+//
+//    } else {
+//
+//        insert_connection(&map, &local);
+//
+//        local_connection_entry = get_connection(&map, &local);
+//
+//        printf("\nconnection: %d    %s\n", local_connection_entry->conn->port, local_connection_entry->key);
+//    }
+
+    print_tcp_headers(tcp, sport, dport);
+}
+
+void print_tcp_headers(const struct tcphdr* tcp, uint16_t sport, uint16_t dport) {
+    printf("  4L  |  TCP: port(%d -> %d)  ", sport, dport);
     printf("seq=");
     printf("%" PRIu32, ntohl(tcp->th_seq));
     printf(" ack=");
@@ -125,16 +180,40 @@ void print_tcp(const u_char* tcp_buf, int ip_header_size) {
            (unsigned int)tcp->fin
     );
     printf("win=%d  ", ntohs(tcp->window));
-    printf("checksum=%d", ntohs(tcp->check));
-    printf("\n");
+    printf("checksum=%d\n", ntohs(tcp->check));
 
-//    print_data(tcp) // TODO
+//    print_data(payload, ip_header_size);
 
-    printf(" ------");
-    printf("\n\n");
+    printf(" ------\n");
 }
 
-void print_data(const unsigned char *data_buffer, const unsigned int length) {
+void process_udp(u_char *payload, uint16_t _) {
+    struct udphdr* udp = (struct udphdr*)(payload);
+
+    printf("  4L  |  UDP: port(%d -> %d)  checksum=%d\n",
+            ntohs(udp->uh_sport),
+            ntohs(udp->uh_dport),
+            ntohs(udp->check));
+//    print_data(payload, ip_header_size);
+
+    printf(" ------\n");
+}
+
+void process_icmp(u_char *payload, uint16_t _) {
+    struct icmphdr* icmp = (struct icmphdr*)(payload);
+
+    printf("  4L  |  ICMP: type=%d  code=%d  checksum=%d\n",
+           icmp->type,
+           icmp->code,
+           ntohs(icmp->checksum)
+           );
+//    print_data(payload, ip_header_size);
+
+    printf(" ------\n");
+}
+
+
+void print_data(const u_char *data_buffer, const u_int32_t length) {
 
     printf("\t\tPayload: (%d bytes)\n\n", length - 32);
     unsigned char byte;
