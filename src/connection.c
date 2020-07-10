@@ -101,3 +101,10 @@ conn_node *get_connection(const connections_map *map, const connection *conn) {
 
     return dumb;
 }
+
+void init_map(connections_map* map) {
+    memset(&map->buckets, 0, sizeof(map->buckets));
+    map->capacity = 200;
+    map->size = 0;
+    map->load_factor = 0.0;
+}

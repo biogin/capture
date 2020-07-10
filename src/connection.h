@@ -34,4 +34,6 @@ conn_node* get_connection(const connections_map*, const connection*);
 conn_node* insert_connection(connections_map*, connection*);
 int delete_connection(connections_map* m, const connection*);
 
+void init_map(connections_map* m);
+
 #endif //CAPTURE_CONNECTION_H
