@@ -9,8 +9,9 @@
 
 #include "connection.h"
 #include "process_packet.h"
+#include "rdns_trie.h"
 
-#define MAX_NUMBER_OF_IFS 100
+#define MAX_NUMBER_OF_IFS 10
 #define PACKET_BUF_TIMEOUT 300
 
 #define AVAILABLE_OPTIONS "lptuie:n:"
@@ -22,12 +23,16 @@
  */
 
 connections_map map;
+rdns_node root;
 
 void sig_handler(int sig) {
     if (sig == SIGINT) {
+
         for (int i = 0, s = map.size; i < s; i++) {
             free(map.buckets[i]);
         }
+
+        del_rdns_trie(&root);
     }
 }
 
@@ -43,7 +48,7 @@ int if_is_up(u_char* interface) { // FIXME Bad file descriptor errno
 
     close(sock);
 
-    return !!(ifr.ifr_flags & IFF_RUNNING);
+    return (ifr.ifr_flags & IFF_RUNNING) != 0;
 }
 
 int main(int argc, char* argv[]) {
@@ -101,7 +106,7 @@ int main(int argc, char* argv[]) {
     if (list_interfaces) {
         int if_num;
         for (int i = 0; i < dvcount; ++i) {
-            printf("%d. %s", i + 1, interfaces[i]);
+            printf("%d. %s\n", i + 1, interfaces[i]);
 
 //            if (if_is_up(interfaces[i]))
 //                printf(" [UP, RUNNING]\n");
@@ -132,9 +137,8 @@ int main(int argc, char* argv[]) {
     printf("Starting to capture on %s\n", interface);
     setbuf(stdout, NULL); // print packets immediately
 
-    memset(&map, 0, sizeof(map));
-    map.capacity = 200;
-    map.size = 0;
+    init_map(&map);
+    init_rdns_trie(&root);
 
     pcap_loop(handle, -1, process_packet, NULL);
 
